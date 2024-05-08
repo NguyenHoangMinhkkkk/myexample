@@ -1,0 +1,129 @@
+import React from 'react';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+// react-native-reanimated v2.x.x
+
+type Props = {
+  selectedKey: string;
+  onSelected: (data: {key: string; name: string}) => void;
+};
+
+const Selections: {key: string; name: string}[] = [
+  {key: 'TouchID', name: 'TouchID'},
+  {key: 'FaceID', name: 'FaceID'},
+  {key: 'Finger', name: 'Finger'},
+  {key: 'EyeID', name: 'LongLongLongText'},
+];
+
+const SwitchExample = (props: Props) => {
+  const animating = React.useRef(false);
+
+  // selectedIndex >= 0 -> mean existing selectedKey in Selections Array
+  const selectedIndex =
+    Selections.findIndex(e => e.key === props.selectedKey) ?? 0;
+  const selectedItem =
+    selectedIndex >= 0 ? Selections[selectedIndex] : Selections[0];
+
+  const initialAnimatedValue =
+    selectedIndex >= 0
+      ? Math.round(100 / Selections.length) * selectedIndex
+      : 0;
+
+  const activeIndexRef = React.useRef<number>(
+    selectedIndex >= 0 ? selectedIndex : 0,
+  );
+  const animated = useSharedValue(initialAnimatedValue);
+  const [activeKey, setActiveKey] = React.useState(selectedItem.key);
+
+  React.useEffect(() => {
+    animating.current = true;
+    let nextValue = Math.ceil(100 / Selections.length) * activeIndexRef.current;
+
+    animated.value = withTiming(nextValue, {
+      duration: 250,
+    });
+
+    // avoid Pressing while UIs are animating
+    setTimeout(() => {
+      animating.current = false;
+    }, 250);
+  }, [activeKey]);
+
+  const positionLeft = useAnimatedStyle(() => {
+    return {
+      left: `${animated.value}%`,
+    };
+  });
+
+  return (
+    <View>
+      <View style={styles.content}>
+        <Animated.View
+          style={[
+            styles.animatedTransView,
+            positionLeft,
+            {
+              width: `${Math.ceil(100 / Selections.length)}%`,
+            },
+          ]}
+        />
+
+        <View style={{flexDirection: 'row'}}>
+          {Selections?.map((selection, index) => {
+            return (
+              <TouchableOpacity
+                key={selection.key}
+                activeOpacity={0.9}
+                style={styles.itemStyle}
+                disabled={activeKey === selection.key}
+                onPress={() => {
+                  if (animating.current) return;
+                  props.onSelected(selection);
+                  setActiveKey(selection.key);
+                  activeIndexRef.current = index;
+                }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: activeKey === selection.key ? 'white' : 'black',
+                  }}>
+                  {selection.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const COMPONENT_HEIGHT = 32;
+
+const styles = StyleSheet.create({
+  itemStyle: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  content: {
+    backgroundColor: 'lightgray',
+    borderRadius: 8,
+    height: COMPONENT_HEIGHT,
+    justifyContent: 'center',
+  },
+  animatedTransView: {
+    borderRadius: 8,
+    height: COMPONENT_HEIGHT,
+    backgroundColor: 'blue',
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'white',
+  },
+});
+
+export default SwitchExample;
