@@ -1,0 +1,200 @@
+import React from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+type ItemData = {
+  _id: string;
+};
+
+type States = {
+  isFetching: boolean;
+  dataList: ItemData[];
+  canLoadMore: boolean;
+  isRefreshing: boolean;
+  isError: boolean;
+  page: number;
+};
+
+const LIMIT = 10; // 10 item per page
+
+export default function ScreenDataList() {
+  const flatListRef = React.createRef<FlatList>();
+
+  const [state, setState] = React.useState<States>({
+    dataList: [],
+    isFetching: true,
+    canLoadMore: true,
+    isRefreshing: false,
+    isError: false,
+    page: 1,
+  });
+
+  React.useEffect(() => {
+    requestDataList();
+  }, []);
+
+  const requestDataList = async (
+    page: number = 1,
+    isRefreshing: boolean = false,
+  ) => {
+    setState(currentState => ({
+      ...currentState,
+      isFetching: !isRefreshing,
+      isRefreshing: isRefreshing,
+    }));
+
+    const response = await requestApi(page, LIMIT);
+
+    if (response.ok) {
+      let newDataList = response.result ?? [];
+
+      setState(currentState => ({
+        ...currentState,
+        dataList:
+          page === 1 ? newDataList : [...currentState.dataList, ...newDataList],
+        canLoadMore: newDataList.length === LIMIT,
+        page: page,
+        isRefreshing: false,
+        isFetching: false,
+        isError: false,
+      }));
+    } else {
+      setState(currentState => ({
+        ...currentState,
+        dataList: [],
+        page: 1,
+        canLoadMore: false,
+        isRefreshing: false,
+        isFetching: false,
+        isLoadingMore: false,
+        isError: true,
+      }));
+    }
+  };
+
+  const handleRefresh = () => {
+    if (state.isRefreshing || state.isFetching) return;
+    requestDataList(1);
+  };
+
+  const handleLoadMore = () => {
+    if (state.isFetching || !state.canLoadMore) return;
+    const nextPage = state.page + 1;
+    requestDataList(nextPage);
+  };
+
+  const renderFooter = () => {
+    if (state.isFetching && state.dataList.length > 0) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator />
+        </View>
+      );
+    } else {
+      return <View style={styles.footer} />;
+    }
+  };
+
+  const renderEmptyPage = () => {
+    const {dataList, isFetching, isError} = state;
+    if (isError) {
+      return (
+        <View style={styles.emptyList}>
+          {/*Error UI*/}
+          <Text>Error</Text>
+        </View>
+      );
+    }
+
+    if (dataList.length === 0 && !isFetching) {
+      return (
+        <View style={styles.emptyList}>
+          {/*Empty UI*/}
+          <Text>Empty</Text>
+        </View>
+      );
+    }
+
+    if (isFetching) {
+      return (
+        <View style={styles.flexCenter}>
+          {/*Loading UI*/}
+          <ActivityIndicator />
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const renderItem = ({item, index}) => {
+    return (
+      <View style={styles.itemView}>
+        <Text>{index}</Text>
+        <Text>{String(item._id)}</Text>
+        {/*Item UI*/}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        ref={flatListRef}
+        style={styles.flex}
+        contentContainerStyle={styles.contentContainer}
+        data={state.dataList}
+        keyExtractor={item => String(item._id)}
+        refreshing={state.isRefreshing}
+        onRefresh={handleRefresh}
+        onEndReached={handleLoadMore}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={renderEmptyPage}
+        onEndReachedThreshold={0.8}
+        renderItem={renderItem}
+      />
+    </View>
+  );
+}
+
+const FOOTER_HEIGHT = 40;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  contentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingBottom: FOOTER_HEIGHT,
+  },
+  emptyList: {
+    flex: 1,
+    paddingBottom: FOOTER_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flex: {
+    flex: 1,
+  },
+  flexCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footer: {
+    height: FOOTER_HEIGHT,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemView: {
+    height: 60,
+    borderWidth: 1,
+  },
+});
